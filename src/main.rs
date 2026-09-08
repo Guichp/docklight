@@ -5,9 +5,9 @@ use crossterm::{
 };
 use ratatui::{
     Terminal,
-    backend::{self, CrosstermBackend},
+    backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
 };
 use std::io;
 
@@ -66,14 +66,24 @@ fn main() -> io::Result<()> {
             let header =
                 Paragraph::new("Docker Cleaner").block(Block::default().borders(Borders::ALL));
 
-            // let content = Paragraph::new("Docker disk usage");
-            let content = Paragraph::new(app.resource_text());
+            let items = app
+                .resources
+                .iter()
+                .map(|resource| ListItem::new(resource.display_text()))
+                .collect::<Vec<_>>();
+
+            let content = List::new(items)
+                .block(Block::default().title("Resources").borders(Borders::ALL))
+                .highlight_symbol("> ");
 
             let footer = Paragraph::new("Press q to quit");
 
-            // frame.render_widget(paragraph, areas);
             frame.render_widget(header, areas[0]);
-            frame.render_widget(content, areas[1]);
+            frame.render_stateful_widget(
+                content,
+                areas[1],
+                &mut ratatui::widgets::ListState::default().with_selected(Some(app.selected)),
+            );
             frame.render_widget(footer, areas[2]);
         })?;
 
@@ -104,21 +114,6 @@ impl App {
             }
             _ => {}
         }
-    }
-
-    fn resource_text(&self) -> String {
-        self.resources
-            .iter() // borrowing each item rather than consuming the vector
-            .enumerate() // adds an index to each item: 0, Images;
-            // 1, containers
-            .map(|(index, resource)| {
-                let marker = if index == self.selected { ">" } else { " " };
-
-                format!("{marker} {}", resource.display_text())
-            }) // transforming each
-            // summary into text
-            .collect::<Vec<_>>() //
-            .join("\n")
     }
 }
 
