@@ -15,6 +15,7 @@ use std::io;
 struct App {
     should_quit: bool,
     resources: Vec<ResourceSummary>,
+    selected: usize,
 }
 
 // Struct representing one Docker resource category, such as images or containers
@@ -40,6 +41,7 @@ fn main() -> io::Result<()> {
                 reclaimable_mb: 850,
             },
         ],
+        selected: 0,
     };
 
     enable_raw_mode()?;
@@ -69,12 +71,6 @@ fn main() -> io::Result<()> {
 
             let footer = Paragraph::new("Press q to quit");
 
-            let paragraph = Paragraph::new("Docker disk usage").block(
-                Block::default()
-                    .title("Docker Cleaner")
-                    .borders(Borders::ALL),
-            );
-
             // frame.render_widget(paragraph, areas);
             frame.render_widget(header, areas[0]);
             frame.render_widget(content, areas[1]);
@@ -94,15 +90,32 @@ fn main() -> io::Result<()> {
 
 impl App {
     fn handle_key(&mut self, key: KeyCode) {
-        if key == KeyCode::Char('q') {
-            self.should_quit = true;
+        match key {
+            KeyCode::Char('q') => self.should_quit = true,
+            KeyCode::Down => {
+                if self.selected + 1 < self.resources.len() {
+                    self.selected += 1;
+                }
+            }
+            KeyCode::Up => {
+                if self.selected > 0 {
+                    self.selected -= 1;
+                }
+            }
+            _ => {}
         }
     }
 
     fn resource_text(&self) -> String {
         self.resources
             .iter() // borrowing each item rather than consuming the vector
-            .map(ResourceSummary::display_text) // transforming each
+            .enumerate() // adds an index to each item: 0, Images;
+            // 1, containers
+            .map(|(index, resource)| {
+                let marker = if index == self.selected { ">" } else { " " };
+
+                format!("{marker} {}", resource.display_text())
+            }) // transforming each
             // summary into text
             .collect::<Vec<_>>() //
             .join("\n")
