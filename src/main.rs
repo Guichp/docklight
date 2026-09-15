@@ -1,3 +1,7 @@
+mod docker;
+
+use docker::ResourceSummary;
+
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -7,7 +11,7 @@ use ratatui::{
     Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
 use std::io;
 
@@ -15,14 +19,8 @@ use std::io;
 struct App {
     should_quit: bool,
     resources: Vec<ResourceSummary>,
-    selected: usize,
-}
-
-// Struct representing one Docker resource category, such as images or containers
-struct ResourceSummary {
-    name: String,        // resource name, such as "Images"
-    count: u32,          // number of resources in that category, such as 12 images
-    reclaimable_mb: u64, // estimated disk space that could be recovered, like 4200 MB
+    list_state: ListState,
+    message: String,
 }
 
 fn main() -> io::Result<()> {
@@ -32,16 +30,17 @@ fn main() -> io::Result<()> {
             ResourceSummary {
                 name: String::from("Images"),
                 count: 12,
-                reclaimable_mb: 4200,
+                reclaimable_bytes: 4_200_000_000,
                 // this means -> Images: 12 resources, 4200MB reclaimable
             },
             ResourceSummary {
                 name: String::from("Containers"),
                 count: 3,
-                reclaimable_mb: 850,
+                reclaimable_bytes: 850_000_000,
             },
         ],
-        selected: 0,
+        list_state: ListState::default(),
+        message: String::from("Select a resource and press Enter"),
     };
 
     enable_raw_mode()?;
@@ -52,6 +51,7 @@ fn main() -> io::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    // main loop for the app
     while !app.should_quit {
         terminal.draw(|frame| {
             let areas = Layout::default()
@@ -76,14 +76,10 @@ fn main() -> io::Result<()> {
                 .block(Block::default().title("Resources").borders(Borders::ALL))
                 .highlight_symbol("> ");
 
-            let footer = Paragraph::new("Press q to quit");
+            let footer = Paragraph::new(app.message.as_str());
 
             frame.render_widget(header, areas[0]);
-            frame.render_stateful_widget(
-                content,
-                areas[1],
-                &mut ratatui::widgets::ListState::default().with_selected(Some(app.selected)),
-            );
+            frame.render_stateful_widget(content, areas[1], &mut app.list_state);
             frame.render_widget(footer, areas[2]);
         })?;
 
@@ -102,26 +98,28 @@ impl App {
     fn handle_key(&mut self, key: KeyCode) {
         match key {
             KeyCode::Char('q') => self.should_quit = true,
-            KeyCode::Down => {
-                if self.selected + 1 < self.resources.len() {
-                    self.selected += 1;
-                }
-            }
-            KeyCode::Up => {
-                if self.selected > 0 {
-                    self.selected -= 1;
-                }
+            KeyCode::Down | KeyCode::Char('j') => self.move_selection(1),
+            KeyCode::Up | KeyCode::Char('k') => self.move_selection(-1),
+            KeyCode::Enter => {
+                let index = self.list_state.selected().unwrap_or(0);
+                let resource = &self.resources[index];
+
+                self.message = format!("Selected {}", resource.name);
             }
             _ => {}
         }
     }
-}
 
-impl ResourceSummary {
-    fn display_text(&self) -> String {
-        format!(
-            "{}: {} resources, {} MB reclaimable",
-            self.name, self.count, self.reclaimable_mb
-        )
+    fn move_selection(&mut self, amount: isize) {
+        let current = self.list_state.selected().unwrap_or(0);
+        let last = self.resources.len().saturating_sub(1);
+
+        let next = if amount.is_negative() {
+            current.saturating_sub(amount.unsigned_abs())
+        } else {
+            current.saturating_add(amount as usize).min(last)
+        };
+
+        self.list_state.select(Some(next))
     }
 }
