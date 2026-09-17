@@ -1,5 +1,7 @@
+mod app;
 mod docker;
 
+use app::App;
 use docker::ResourceSummary;
 
 use crossterm::{
@@ -15,29 +17,12 @@ use ratatui::{
 };
 use std::io;
 
-// App struct must be created before main()
-struct App {
-    should_quit: bool,
-    resources: Vec<ResourceSummary>,
-    list_state: ListState,
-    message: String,
-}
-
 fn main() -> io::Result<()> {
     let mut app = App {
         should_quit: false,
         resources: vec![
-            ResourceSummary {
-                name: String::from("Images"),
-                count: 12,
-                reclaimable_bytes: 4_200_000_000,
-                // this means -> Images: 12 resources, 4200MB reclaimable
-            },
-            ResourceSummary {
-                name: String::from("Containers"),
-                count: 3,
-                reclaimable_bytes: 850_000_000,
-            },
+            ResourceSummary::new(String::from("Images"), 12, 4_200_000_000),
+            ResourceSummary::new(String::from("Containers"), 3, 850_000_000),
         ],
         list_state: ListState::default(),
         message: String::from("Select a resource and press Enter"),
@@ -92,34 +77,4 @@ fn main() -> io::Result<()> {
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
 
     Ok(())
-}
-
-impl App {
-    fn handle_key(&mut self, key: KeyCode) {
-        match key {
-            KeyCode::Char('q') => self.should_quit = true,
-            KeyCode::Down | KeyCode::Char('j') => self.move_selection(1),
-            KeyCode::Up | KeyCode::Char('k') => self.move_selection(-1),
-            KeyCode::Enter => {
-                let index = self.list_state.selected().unwrap_or(0);
-                let resource = &self.resources[index];
-
-                self.message = format!("Selected {}", resource.name);
-            }
-            _ => {}
-        }
-    }
-
-    fn move_selection(&mut self, amount: isize) {
-        let current = self.list_state.selected().unwrap_or(0);
-        let last = self.resources.len().saturating_sub(1);
-
-        let next = if amount.is_negative() {
-            current.saturating_sub(amount.unsigned_abs())
-        } else {
-            current.saturating_add(amount as usize).min(last)
-        };
-
-        self.list_state.select(Some(next))
-    }
 }

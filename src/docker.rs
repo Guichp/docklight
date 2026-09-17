@@ -1,8 +1,8 @@
 pub struct ResourceSummary {
     // Struct representing one Docker resource category, such as images or containers
-    pub name: String,           // resource name, such as "Images"
-    pub count: u32,             // number of resources in that category, such as 12 images
-    pub reclaimable_bytes: u64, // estimated disk space that could be recovered, like 4200 MB
+    name: String,           // resource name, such as "Images"
+    count: u32,             // number of resources in that category, such as 12 images
+    reclaimable_bytes: u64, // estimated disk space that could be recovered, like 4200 MB
 }
 
 impl ResourceSummary {
@@ -13,6 +13,26 @@ impl ResourceSummary {
             self.count,
             format_bytes(self.reclaimable_bytes),
         )
+    }
+
+    pub fn new(name: String, count: u32, reclaimable_bytes: u64) -> Self {
+        Self {
+            name,
+            count,
+            reclaimable_bytes,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn count(&self) -> &u32 {
+        &self.count
+    }
+
+    pub fn reclaimable_bytes(&self) -> &u64 {
+        &self.reclaimable_bytes
     }
 }
 
